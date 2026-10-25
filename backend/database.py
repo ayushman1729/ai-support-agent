@@ -1,7 +1,11 @@
 import sqlite3
 import os
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "support_system.db")
+# On Vercel serverless, root directory is read-only, so write SQLite DB in /tmp
+if os.environ.get("VERCEL"):
+    DB_PATH = "/tmp/support_system.db"
+else:
+    DB_PATH = os.path.join(os.path.dirname(__file__), "support_system.db")
 
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH)

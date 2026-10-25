@@ -2,7 +2,7 @@ import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 
@@ -76,9 +76,10 @@ STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend"
 if os.path.exists(STATIC_DIR):
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 def serve_index():
     index_file = os.path.join(STATIC_DIR, "index.html")
     if os.path.exists(index_file):
-        return FileResponse(index_file)
-    return {"message": "AI Support API is running. Visit /docs for Swagger UI."}
+        with open(index_file, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    return HTMLResponse(content="<h2>SwiftCart AI Support API is running.</h2><p>Visit <a href='/docs'>/docs</a> for Swagger UI.</p>")

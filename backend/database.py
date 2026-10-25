@@ -8,42 +8,38 @@ else:
     DB_PATH = os.path.join(os.path.dirname(__file__), "support_system.db")
 
 def get_db_connection():
+    db_exists = os.path.exists(DB_PATH)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    if not db_exists:
+        init_db_conn(conn)
     return conn
 
-def init_db():
-    conn = get_db_connection()
+def init_db_conn(conn):
     cursor = conn.cursor()
-
-    # Create Orders table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS orders (
             order_id INTEGER PRIMARY KEY,
             customer_name TEXT NOT NULL,
             item_name TEXT NOT NULL,
-            status TEXT NOT NULL, -- 'Processing', 'Shipped', 'Delivered', 'Cancelled'
+            status TEXT NOT NULL,
             courier TEXT,
             tracking_id TEXT,
             estimated_delivery TEXT,
             total_amount REAL NOT NULL
         )
     """)
-
-    # Create Support Tickets table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS tickets (
             ticket_id INTEGER PRIMARY KEY AUTOINCREMENT,
             customer_name TEXT NOT NULL,
             order_id INTEGER,
             issue_description TEXT NOT NULL,
-            priority TEXT NOT NULL, -- 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'
-            status TEXT DEFAULT 'OPEN', -- 'OPEN', 'IN_PROGRESS', 'RESOLVED'
+            priority TEXT NOT NULL,
+            status TEXT DEFAULT 'OPEN',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
-
-    # Seed initial orders if empty
     cursor.execute("SELECT COUNT(*) FROM orders")
     if cursor.fetchone()[0] == 0:
         seed_orders = [
@@ -56,8 +52,12 @@ def init_db():
             INSERT INTO orders (order_id, customer_name, item_name, status, courier, tracking_id, estimated_delivery, total_amount)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, seed_orders)
-
     conn.commit()
+
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    init_db_conn(conn)
     conn.close()
 
 if __name__ == "__main__":

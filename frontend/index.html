@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SwiftCart AI Support Agent & Tool Calling System</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Phosphor Icons -->
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css"/>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              900: '#312e81',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 h-screen flex flex-col font-sans antialiased overflow-hidden">
+
+  <!-- Top Navbar -->
+  <header class="h-16 shrink-0 border-b border-slate-800 bg-slate-900/80 backdrop-blur px-6 py-3 flex items-center justify-between sticky top-0 z-50">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
+        <i class="ph-bold ph-robot text-2xl"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="font-bold text-base tracking-tight text-white">SwiftCart AI Agent</h1>
+          <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            Tool Calling Active
+          </span>
+        </div>
+        <p class="text-xs text-slate-400">Autonomous Support, Real-time SQL DB Sync & Escalation</p>
+      </div>
+    </div>
+
+    <!-- Actions / API Key Settings -->
+    <div class="flex items-center gap-3">
+      <button onclick="toggleApiKeyModal()" class="px-3 py-1.5 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center gap-1.5 transition">
+        <i class="ph ph-key"></i>
+        <span id="apiKeyBtnText">Gemini API Key</span>
+      </button>
+      <button onclick="resetDatabase()" class="px-3 py-1.5 text-xs rounded-lg bg-red-950/40 hover:bg-red-900/50 text-red-300 border border-red-800/40 flex items-center gap-1.5 transition" title="Reset DB orders and tickets">
+        <i class="ph ph-arrows-clockwise"></i>
+        <span>Reset DB</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Grid: Chat (Left) + Inspector (Right) -->
+  <main class="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-hidden">
+    
+    <!-- LEFT: Chat Section (7 cols) -->
+    <section class="lg:col-span-7 flex flex-col h-full min-h-0 border-r border-slate-800 bg-slate-900/40">
+      
+      <!-- Quick Prompts Banner -->
+      <div class="p-3 bg-slate-900/90 border-b border-slate-800/80 shrink-0">
+        <p class="text-[11px] font-medium text-slate-400 mb-2 flex items-center gap-1">
+          <i class="ph-bold ph-lightning text-amber-400"></i> Try clicking a quick sample prompt:
+        </p>
+        <div class="flex flex-wrap gap-2">
+          <button onclick="sendQuickPrompt('Order #101 kahan tak pahuncha? Status batao')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-md border border-slate-700 transition">
+            📦 Track Order #101
+          </button>
+          <button onclick="sendQuickPrompt('Mujhe order #102 cancel karna hai, please cancel it')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-md border border-slate-700 transition">
+            ❌ Cancel Order #102
+          </button>
+          <button onclick="sendQuickPrompt('Mera item toota hua nikla hai! Bohot ghatiya service hai, ticket raise karo!')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-md border border-slate-700 transition">
+            ⚠️ Complaint & Ticket
+          </button>
+          <button onclick="sendQuickPrompt('SwiftCart ki return aur refund policy kya hai?')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-md border border-slate-700 transition">
+            📜 Refund Policy
+          </button>
+        </div>
+      </div>
+
+      <!-- Messages Stream -->
+      <div id="messagesContainer" class="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 scroll-smooth">
+        <!-- Initial Bot Greeting -->
+        <div class="flex items-start gap-3">
+          <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shrink-0 mt-0.5">
+            <i class="ph-bold ph-robot"></i>
+          </div>
+          <div class="bg-slate-800/80 border border-slate-700/60 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[85%] text-sm leading-relaxed text-slate-200">
+            <p class="font-medium text-indigo-300 mb-1">SwiftCart AI Agent</p>
+            <p>Namaste! Mai SwiftCart ka autonomous support agent hoon. Mai aapka order status check kar sakta hoon, cancellation request process kar sakta hoon, aur agar koi dikkat hai toh priority ticket raise kar sakta hoon.</p>
+            <p class="mt-2 text-xs text-slate-400">Aap Hindi ya English dono me baat kar sakte hain!</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Input Form -->
+      <div class="p-4 border-t border-slate-800 bg-slate-900/80 shrink-0">
+        <form id="chatForm" onsubmit="handleSendMessage(event)" class="flex gap-2">
+          <input 
+            type="text" 
+            id="chatInput" 
+            placeholder="Type your message... e.g. 'Order #101 status kya hai?'"
+            class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
+            autocomplete="off"
+          />
+          <button 
+            type="submit" 
+            id="sendBtn"
+            class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-medium text-sm flex items-center gap-2 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-indigo-600/20"
+          >
+            <span>Send</span>
+            <i class="ph-bold ph-paper-plane-right"></i>
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- RIGHT: Live System & Tool Inspector (5 cols) -->
+    <section class="lg:col-span-5 flex flex-col h-full min-h-0 bg-slate-950 overflow-hidden">
+      
+      <!-- Right Panel Header Tabs -->
+      <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/60 shrink-0">
+        <div class="flex items-center gap-2">
+          <button onclick="switchTab('db')" id="tabDbBtn" class="px-3 py-1 text-xs font-semibold rounded-md bg-indigo-600 text-white transition flex items-center gap-1.5">
+            <i class="ph ph-database"></i> Live Database
+          </button>
+          <button onclick="switchTab('tools')" id="tabToolsBtn" class="px-3 py-1 text-xs font-semibold rounded-md bg-slate-800 text-slate-400 hover:text-slate-200 transition flex items-center gap-1.5">
+            <i class="ph ph-terminal-window"></i> Tool Logs
+            <span id="toolCountBadge" class="bg-indigo-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold hidden">0</span>
+          </button>
+        </div>
+        <button onclick="refreshData()" class="text-slate-400 hover:text-slate-200 text-xs flex items-center gap-1">
+          <i class="ph ph-arrows-clockwise text-sm"></i> Refresh
+        </button>
+      </div>
+
+      <!-- Tab Content 1: Live Database -->
+      <div id="tabDbContent" class="flex-1 overflow-y-auto p-4 space-y-5">
+        
+        <!-- Orders Table -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <i class="ph-bold ph-package text-indigo-400"></i> SQLite: Orders Table
+            </h2>
+            <span class="text-[10px] text-slate-500">Live Backend View</span>
+          </div>
+          <div class="border border-slate-800 rounded-xl overflow-hidden bg-slate-900/50">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-800/60 text-slate-400 border-b border-slate-800">
+                <tr>
+                  <th class="p-2.5">ID</th>
+                  <th class="p-2.5">Item</th>
+                  <th class="p-2.5">Status</th>
+                  <th class="p-2.5">Amount</th>
+                </tr>
+              </thead>
+              <tbody id="ordersTableBody" class="divide-y divide-slate-800/60 text-slate-300">
+                <tr><td colspan="4" class="p-3 text-center text-slate-500">Loading orders...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Support Tickets Table -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <i class="ph-bold ph-ticket text-amber-400"></i> SQLite: Escalated Tickets Table
+            </h2>
+            <span id="ticketCountLabel" class="text-[10px] text-amber-400/80 font-medium">0 Tickets</span>
+          </div>
+          <div class="border border-slate-800 rounded-xl overflow-hidden bg-slate-900/50">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-slate-800/60 text-slate-400 border-b border-slate-800">
+                <tr>
+                  <th class="p-2.5">Ticket #</th>
+                  <th class="p-2.5">Customer & Issue</th>
+                  <th class="p-2.5">Priority</th>
+                  <th class="p-2.5">Status</th>
+                </tr>
+              </thead>
+              <tbody id="ticketsTableBody" class="divide-y divide-slate-800/60 text-slate-300">
+                <tr><td colspan="4" class="p-3 text-center text-slate-500">No tickets generated yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Tab Content 2: Tool Execution Logs -->
+      <div id="tabToolsContent" class="flex-1 overflow-y-auto p-4 space-y-3 hidden">
+        <div class="flex items-center justify-between">
+          <p class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+            <i class="ph-bold ph-code text-emerald-400"></i> AI Function Calls (Under the Hood)
+          </p>
+          <span class="text-[11px] text-slate-500">Tool execution history</span>
+        </div>
+        <div id="toolLogsContainer" class="space-y-3">
+          <div class="p-4 rounded-xl border border-slate-800 bg-slate-900/40 text-center text-slate-500 text-xs">
+            Ask a question in chat to watch the AI call database tools in real-time!
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- API Key Modal -->
+  <div id="apiKeyModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+          <i class="ph-bold ph-key text-indigo-400 text-lg"></i>
+          <h3 class="font-bold text-white text-base">Gemini API Key</h3>
+        </div>
+        <button onclick="toggleApiKeyModal()" class="text-slate-400 hover:text-white">
+          <i class="ph-bold ph-x text-lg"></i>
+        </button>
+      </div>
+      <p class="text-xs text-slate-400 mb-3 leading-relaxed">
+        Google AI Studio se free API key lekar yahan daalein. Agar nahi daalte, tab bhi built-in Smart Tool Agent bilkul sahi chalega!
+      </p>
+      <input 
+        type="password" 
+        id="apiKeyInput" 
+        placeholder="AIzaSy..." 
+        class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 mb-4 focus:outline-none focus:border-indigo-500"
+      />
+      <div class="flex justify-end gap-2">
+        <button onclick="toggleApiKeyModal()" class="px-4 py-2 rounded-xl text-xs text-slate-300 hover:bg-slate-800 transition">Cancel</button>
+        <button onclick="saveApiKey()" class="px-4 py-2 rounded-xl text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition">Save Key</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Client-side Logic -->
+  <script>
+    let chatHistory = [];
+    let toolLogHistory = [];
+    let savedApiKey = localStorage.getItem("GEMINI_API_KEY") || "";
+
+    if (savedApiKey) {
+      document.getElementById("apiKeyBtnText").innerText = "Key Configured ✓";
+      document.getElementById("apiKeyInput").value = savedApiKey;
+    }
+
+    function toggleApiKeyModal() {
+      const modal = document.getElementById("apiKeyModal");
+      modal.classList.toggle("hidden");
+    }
+
+    function saveApiKey() {
+      const key = document.getElementById("apiKeyInput").value.trim();
+      savedApiKey = key;
+      localStorage.setItem("GEMINI_API_KEY", key);
+      document.getElementById("apiKeyBtnText").innerText = key ? "Key Configured ✓" : "Gemini API Key";
+      toggleApiKeyModal();
+    }
+
+    function switchTab(tab) {
+      const dbContent = document.getElementById("tabDbContent");
+      const toolsContent = document.getElementById("tabToolsContent");
+      const tabDbBtn = document.getElementById("tabDbBtn");
+      const tabToolsBtn = document.getElementById("tabToolsBtn");
+
+      if (tab === 'db') {
+        dbContent.classList.remove("hidden");
+        toolsContent.classList.add("hidden");
+        tabDbBtn.className = "px-3 py-1 text-xs font-semibold rounded-md bg-indigo-600 text-white transition flex items-center gap-1.5";
+        tabToolsBtn.className = "px-3 py-1 text-xs font-semibold rounded-md bg-slate-800 text-slate-400 hover:text-slate-200 transition flex items-center gap-1.5";
+      } else {
+        dbContent.classList.add("hidden");
+        toolsContent.classList.remove("hidden");
+        tabToolsBtn.className = "px-3 py-1 text-xs font-semibold rounded-md bg-indigo-600 text-white transition flex items-center gap-1.5";
+        tabDbBtn.className = "px-3 py-1 text-xs font-semibold rounded-md bg-slate-800 text-slate-400 hover:text-slate-200 transition flex items-center gap-1.5";
+      }
+    }
+
+    async function refreshData() {
+      try {
+        const [ordersRes, ticketsRes] = await Promise.all([
+          fetch('/api/orders'),
+          fetch('/api/tickets')
+        ]);
+        const orders = await ordersRes.json();
+        const tickets = await ticketsRes.json();
+        renderOrders(orders);
+        renderTickets(tickets);
+      } catch (err) {
+        console.error("Failed to refresh data", err);
+      }
+    }
+
+    function renderOrders(orders) {
+      const tbody = document.getElementById("ordersTableBody");
+      if (!orders || orders.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="p-3 text-center text-slate-500">No orders found.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = orders.map(o => {
+        let badgeColor = "bg-slate-700 text-slate-300";
+        if (o.status === 'Shipped') badgeColor = "bg-blue-500/10 text-blue-400 border border-blue-500/20";
+        else if (o.status === 'Processing') badgeColor = "bg-amber-500/10 text-amber-400 border border-amber-500/20";
+        else if (o.status === 'Delivered') badgeColor = "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+        else if (o.status === 'Cancelled') badgeColor = "bg-rose-500/10 text-rose-400 border border-rose-500/20";
+
+        return `
+          <tr class="hover:bg-slate-800/40 transition">
+            <td class="p-2.5 font-mono text-indigo-300 font-bold">#${o.order_id}</td>
+            <td class="p-2.5">
+              <div class="font-medium text-slate-200 truncate max-w-[140px]">${o.item_name}</div>
+              <div class="text-[10px] text-slate-400">${o.customer_name}</div>
+            </td>
+            <td class="p-2.5">
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold ${badgeColor}">
+                ${o.status}
+              </span>
+            </td>
+            <td class="p-2.5 font-mono text-slate-300">₹${Number(o.total_amount).toLocaleString()}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderTickets(tickets) {
+      const tbody = document.getElementById("ticketsTableBody");
+      const label = document.getElementById("ticketCountLabel");
+      label.innerText = `${tickets.length} Ticket${tickets.length === 1 ? '' : 's'}`;
+
+      if (!tickets || tickets.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="p-3 text-center text-slate-500">No tickets generated yet.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = tickets.map(t => {
+        let pColor = "bg-slate-700 text-slate-300";
+        if (t.priority === 'CRITICAL') pColor = "bg-rose-600/20 text-rose-300 border border-rose-500/40 animate-pulse font-bold";
+        else if (t.priority === 'HIGH') pColor = "bg-orange-500/10 text-orange-400 border border-orange-500/20";
+        else if (t.priority === 'MEDIUM') pColor = "bg-amber-500/10 text-amber-400 border border-amber-500/20";
+
+        return `
+          <tr class="hover:bg-slate-800/40 transition">
+            <td class="p-2.5 font-mono text-amber-300 font-bold">#T-${t.ticket_id}</td>
+            <td class="p-2.5">
+              <div class="font-medium text-slate-200 text-[11px] line-clamp-1">${t.issue_description}</div>
+              <div class="text-[10px] text-slate-400">${t.customer_name} ${t.order_id ? `(Order #${t.order_id})` : ''}</div>
+            </td>
+            <td class="p-2.5">
+              <span class="px-2 py-0.5 rounded-full text-[10px] ${pColor}">
+                ${t.priority}
+              </span>
+            </td>
+            <td class="p-2.5 font-semibold text-[10px] text-emerald-400">${t.status}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderToolLogs() {
+      const container = document.getElementById("toolLogsContainer");
+      const badge = document.getElementById("toolCountBadge");
+      badge.innerText = toolLogHistory.length;
+      badge.classList.remove("hidden");
+
+      if (toolLogHistory.length === 0) {
+        container.innerHTML = `<div class="p-4 rounded-xl border border-slate-800 bg-slate-900/40 text-center text-slate-500 text-xs">No tool executions recorded yet.</div>`;
+        return;
+      }
+
+      container.innerHTML = toolLogHistory.map((item, idx) => `
+        <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-3 space-y-2 text-xs">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5 font-mono text-emerald-400 font-semibold">
+              <i class="ph-bold ph-gear"></i>
+              <span>${item.tool}()</span>
+            </div>
+            <span class="text-[10px] text-slate-500 font-mono">Call #${idx + 1}</span>
+          </div>
+          <div>
+            <div class="text-[10px] uppercase font-bold text-slate-500 mb-0.5">Arguments:</div>
+            <pre class="bg-slate-950 p-2 rounded-lg text-slate-300 font-mono text-[11px] overflow-x-auto border border-slate-800/60">${JSON.stringify(item.args, null, 2)}</pre>
+          </div>
+          <div>
+            <div class="text-[10px] uppercase font-bold text-slate-500 mb-0.5">Database Result:</div>
+            <pre class="bg-slate-950 p-2 rounded-lg text-emerald-300 font-mono text-[11px] overflow-x-auto border border-slate-800/60">${JSON.stringify(item.output, null, 2)}</pre>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function resetDatabase() {
+      if (!confirm("Are you sure you want to reset orders and tickets back to initial state?")) return;
+      await fetch('/api/reset-db', { method: 'POST' });
+      toolLogHistory = [];
+      renderToolLogs();
+      await refreshData();
+      alert("Database reset successfully!");
+    }
+
+    function sendQuickPrompt(text) {
+      document.getElementById("chatInput").value = text;
+      handleSendMessage(new Event('submit'));
+    }
+
+    async function handleSendMessage(e) {
+      if (e) e.preventDefault();
+      const input = document.getElementById("chatInput");
+      const text = input.value.trim();
+      if (!text) return;
+
+      input.value = "";
+      const sendBtn = document.getElementById("sendBtn");
+      sendBtn.disabled = true;
+
+      // Append User message in UI
+      appendMessage("user", text);
+
+      // Add loading indicator
+      const loadingId = appendLoadingIndicator();
+
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: text,
+            history: chatHistory,
+            api_key: savedApiKey || null
+          })
+        });
+
+        const data = await response.json();
+        removeLoadingIndicator(loadingId);
+
+        // Update history
+        chatHistory.push({ role: "user", content: text });
+        chatHistory.push({ role: "assistant", content: data.reply });
+
+        // Record any tool calls
+        if (data.tool_calls && data.tool_calls.length > 0) {
+          toolLogHistory.unshift(...data.tool_calls);
+          renderToolLogs();
+        }
+
+        // Render AI Message
+        appendMessage("assistant", data.reply, data.tool_calls, data.mode);
+
+        // Refresh database display automatically
+        await refreshData();
+
+      } catch (err) {
+        removeLoadingIndicator(loadingId);
+        appendMessage("assistant", "⚠️ Server se connect karne me dikkat aayi. Kripya backend verify karein.");
+        console.error(err);
+      } finally {
+        sendBtn.disabled = false;
+        input.focus();
+      }
+    }
+
+    function appendMessage(role, text, toolCalls = [], mode = "simulator") {
+      const container = document.getElementById("messagesContainer");
+      const isUser = role === "user";
+
+      const wrapper = document.createElement("div");
+      wrapper.className = `flex items-start gap-3 ${isUser ? 'justify-end' : ''}`;
+
+      let toolPillHtml = '';
+      if (toolCalls && toolCalls.length > 0) {
+        toolPillHtml = `
+          <div class="mt-2.5 pt-2 border-t border-slate-700/60 flex flex-wrap gap-1.5 items-center">
+            <span class="text-[10px] uppercase font-bold text-slate-400">Tools Executed:</span>
+            ${toolCalls.map(t => `
+              <span class="px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-500/30 text-[10px] font-mono flex items-center gap-1">
+                <i class="ph-bold ph-check"></i> ${t.tool}
+              </span>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      // Convert newlines to breaks and simple bold markdown
+      const formattedText = text
+        .replace(/\n/g, '<br>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+      if (isUser) {
+        wrapper.innerHTML = `
+          <div class="bg-indigo-600 text-white rounded-2xl rounded-tr-sm px-4 py-3 max-w-[85%] text-sm leading-relaxed shadow-md shadow-indigo-600/10">
+            ${formattedText}
+          </div>
+          <div class="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300 shrink-0 mt-0.5">
+            <i class="ph-bold ph-user"></i>
+          </div>
+        `;
+      } else {
+        wrapper.innerHTML = `
+          <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shrink-0 mt-0.5">
+            <i class="ph-bold ph-robot"></i>
+          </div>
+          <div class="bg-slate-800/80 border border-slate-700/60 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[85%] text-sm leading-relaxed text-slate-200">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-medium text-indigo-300 text-xs">SwiftCart AI</span>
+              <span class="text-[10px] text-slate-500 font-mono uppercase">${mode}</span>
+            </div>
+            <div>${formattedText}</div>
+            ${toolPillHtml}
+          </div>
+        `;
+      }
+
+      container.appendChild(wrapper);
+      scrollToBottom();
+    }
+
+    function scrollToBottom() {
+      const container = document.getElementById("messagesContainer");
+      if (!container) return;
+      container.scrollTop = container.scrollHeight;
+      requestAnimationFrame(() => {
+        container.scrollTop = container.scrollHeight;
+      });
+      setTimeout(() => {
+        container.scrollTo({
+          top: container.scrollHeight,
+          behavior: 'smooth'
+        });
+      }, 30);
+    }
+
+    function appendLoadingIndicator() {
+      const container = document.getElementById("messagesContainer");
+      const id = "loading-" + Date.now();
+      const div = document.createElement("div");
+      div.id = id;
+      div.className = "flex items-start gap-3";
+      div.innerHTML = `
+        <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shrink-0 mt-0.5">
+          <i class="ph-bold ph-robot"></i>
+        </div>
+        <div class="bg-slate-800/80 border border-slate-700/60 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-slate-400 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-indigo-400 animate-ping"></span>
+          <span>AI database check kar raha hai aur tool execute kar raha hai...</span>
+        </div>
+      `;
+      container.appendChild(div);
+      scrollToBottom();
+      return id;
+    }
+
+    function removeLoadingIndicator(id) {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+      scrollToBottom();
+    }
+
+    // Initial load
+    refreshData();
+  </script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+env/
+venv/
+ENV/
+.venv/
+
+# Environment variables
+.env
+
+# SQLite databases (let user start with fresh DB or init_db)
+backend/support_system.db
+*.db
+*.db-journal
+
+# IDEs
+.vscode/
+.idea/
